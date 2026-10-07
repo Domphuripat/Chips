@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Card Game Virtual Chips</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Firebase SDK (Compat Version สำหรับ Single File HTML) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4 flex flex-col items-center selection:bg-amber-500 selection:text-slate-950">
+
+  <div class="w-full max-w-md space-y-4">
+    <!-- Header -->
+    <header class="text-center py-2 border-b border-slate-700">
+      <h1 class="text-2xl font-black text-amber-400 tracking-wide">♠ VIRTUAL CHIPS ♥</h1>
+      <p id="roomDisplay" class="text-xs text-slate-400 mt-1">ยังไม่ได้เชื่อมต่อห้อง</p>
+    </header>
+
+    <!-- Screen 1: Join / Create Room -->
+    <div id="joinSection" class="bg-slate-800 p-5 rounded-2xl shadow-xl space-y-4 border border-slate-700/60">
+      <div>
+        <label class="text-xs text-slate-400 block mb-1">ชื่อของคุณ</label>
+        <input id="playerNameInput" type="text" placeholder="เช่น แบงค์, นิค" class="w-full bg-slate-700 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-amber-400">
+      </div>
+      <div>
+        <label class="text-xs text-slate-400 block mb-1">รหัสห้อง (Room Code)</label>
+        <input id="roomCodeInput" type="text" placeholder="เช่น 9999 (เว้นว่างได้ถ้าสร้างใหม่)" class="w-full bg-slate-700 rounded-xl px-4 py-2.5 text-white uppercase outline-none focus:ring-2 focus:ring-amber-400">
+      </div>
+      <div class="grid grid-cols-2 gap-3 pt-2">
+        <button onclick="joinRoom(false)" class="bg-slate-700 hover:bg-slate-600 text-amber-400 font-bold py-3 rounded-xl transition-all">เข้าร่วมห้อง</button>
+        <button onclick="joinRoom(true)" class="bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold py-3 rounded-xl transition-all shadow-md">สร้างห้องใหม่</button>
+      </div>
+    </div>
+
+    <!-- Screen 2: Game Dashboard -->
+    <div id="gameSection" class="hidden space-y-4">
+      <!-- Player Info Card -->
+      <div class="bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 p-4 rounded-2xl shadow-lg flex justify-between items-center">
+        <div>
+          <div id="myRoleTag" class="text-xs font-bold uppercase opacity-75">ผู้เล่น</div>
+          <div id="myNameDisplay" class="text-xl font-black leading-tight">Player</div>
+        </div>
+        <div class="text-right">
+          <div class="text-xs uppercase font-bold opacity-75">ชิปคงเหลือ</div>
+          <div id="myChipsDisplay" class="text-3xl font-black">0</div>
+        </div>
+      </div>
+
+      <!-- Pot Section -->
+      <div class="bg-slate-800 border border-slate-700 p-4 rounded-2xl flex justify-between items-center shadow-md">
+        <div>
+          <div class="text-xs text-slate-400">กองกลาง (Pot)</div>
+          <div id="potDisplay" class="text-2xl font-black text-amber-400">0</div>
+        </div>
+        <button onclick="claimPot()" class="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-all">ฉันชนะรอบนี้ (กิน Pot)</button>
+      </div>
+
+      <!-- Quick Action / Bet -->
+      <div class="bg-slate-800 p-4 rounded-2xl space-y-3 border border-slate-700/60">
+        <label class="text-xs font-bold text-slate-300 block">ลงชิปกองกลาง (Bet / Ante)</label>
+        <div class="grid grid-cols-4 gap-2">
+          <button onclick="betToPot(5)" class="bg-slate-700 hover:bg-slate-600 active:scale-95 py-2 rounded-xl font-bold text-sm">+5</button>
+          <button onclick="betToPot(10)" class="bg-slate-700 hover:bg-slate-600 active:scale-95 py-2 rounded-xl font-bold text-sm">+10</button>
+          <button onclick="betToPot(20)" class="bg-slate-700 hover:bg-slate-600 active:scale-95 py-2 rounded-xl font-bold text-sm">+20</button>
+          <button onclick="betToPot(50)" class="bg-slate-700 hover:bg-slate-600 active:scale-95 py-2 rounded-xl font-bold text-sm">+50</button>
+        </div>
+        <div class="flex gap-2">
+          <input id="customBetInput" type="number" placeholder="ระบุจำนวน..." class="w-full bg-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-amber-400">
+          <button onclick="betCustomToPot()" class="bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold px-4 py-2 text-sm rounded-xl shrink-0">ลงชิป</button>
+        </div>
+      </div>
+
+      <!-- Game Specific Tabs -->
+      <div class="bg-slate-800 p-4 rounded-2xl space-y-3 border border-slate-700/60">
+        <div class="text-xs font-bold text-slate-300">เครื่องมือคำนวณตามเกม</div>
+        <div class="grid grid-cols-3 gap-2">
+          <button onclick="showGamePanel('kang')" class="bg-indigo-600/30 border border-indigo-500/60 text-indigo-200 text-xs py-2 rounded-lg font-bold">ไพ่แคง (ไหล)</button>
+          <button onclick="showGamePanel('viet')" class="bg-rose-600/30 border border-rose-500/60 text-rose-200 text-xs py-2 rounded-lg font-bold">ไพ่เวียด (นับใบ)</button>
+          <button onclick="showGamePanel('slave')" class="bg-teal-600/30 border border-teal-500/60 text-teal-200 text-xs py-2 rounded-lg font-bold">สลาฟ (King/Slave)</button>
+        </div>
+
+        <!-- แผงไพ่แคง (จ่ายค่าไหล) -->
+        <div id="panel-kang" class="game-panel hidden pt-2 space-y-2 border-t border-slate-700">
+          <div class="text-xs text-indigo-300 font-medium">จ่ายค่าไหลให้เพื่อน:</div>
+          <div class="flex gap-2">
+            <select id="kangTargetPlayer" class="w-full bg-slate-700 text-xs rounded-lg px-2 py-2 text-white outline-none"></select>
+            <button onclick="payKangFlow()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-lg shrink-0">จ่าย 5 ชิป</button>
+          </div>
+        </div>
+
+        <!-- แผงไพ่เวียด (คิดแต้มตามใบ) -->
+        <div id="panel-viet" class="game-panel hidden pt-2 space-y-2 border-t border-slate-700">
+          <div class="text-xs text-rose-300 font-medium">แพ้ไพ่เวียด (จ่ายคนชนะตามใบ):</div>
+          <div class="grid grid-cols-2 gap-2">
+            <select id="vietWinnerSelect" class="bg-slate-700 text-xs rounded-lg px-2 py-2 text-white outline-none"></select>
+            <input id="vietCardCount" type="number" placeholder="เหลือกี่ใบ" class="bg-slate-700 text-xs rounded-lg px-2 py-2 text-white outline-none">
+          </div>
+          <button onclick="payVietCards()" class="w-full bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold py-2 rounded-lg">จ่ายชิป (ใบละ 2 ชิป)</button>
+        </div>
+
+        <!-- แผงสลาฟ -->
+        <div id="panel-slave" class="game-panel hidden pt-2 space-y-2 border-t border-slate-700">
+          <div class="text-xs text-teal-300 font-medium">สลาฟจ่ายคิง (Slave → King):</div>
+          <div class="flex gap-2">
+            <select id="slaveKingSelect" class="w-full bg-slate-700 text-xs rounded-lg px-2 py-2 text-white outline-none"></select>
+            <button onclick="paySlaveTax()" class="bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold px-4 py-2 rounded-lg shrink-0">จ่าย 20 ชิป</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Player List -->
+      <div class="bg-slate-800 p-4 rounded-2xl space-y-2 border border-slate-700/60">
+        <div class="text-xs font-bold text-slate-400">ผู้เล่นในโต๊ะ</div>
+        <div id="playersList" class="space-y-1.5 max-h-48 overflow-y-auto"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Config ของ Firebase ที่ใส่ค่าจริงของคุณเรียบร้อยแล้ว
+    const firebaseConfig = {
+      apiKey: "AIzaSyBxbzonZYfHsAefpHgo40YrHuRJmz93Buk",
+      authDomain: "chip-flow.firebaseapp.com",
+      databaseURL: "https://chip-flow-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "chip-flow",
+      storageBucket: "chip-flow.firebasestorage.app",
+      messagingSenderId: "739044931058",
+      appId: "1:739044931058:web:26fe815e148a37a795676b",
+      measurementId: "G-H2CTL8JS8R"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let currentRoom = "";
+    let myId = "";
+    let myName = "";
+    let roomRef = null;
+    let playersCache = {};
+
+    function joinRoom(isHost) {
+      myName = document.getElementById("playerNameInput").value.trim();
+      let room = document.getElementById("roomCodeInput").value.trim().toUpperCase();
+
+      if (!myName) return alert("กรุณาใส่ชื่อของคุณ");
+      if (!room) {
+        if (isHost) room = Math.floor(1000 + Math.random() * 9000).toString();
+        else return alert("กรุณาระบุรหัสห้อง");
+      }
+
+      currentRoom = room;
+      myId = "p_" + Math.random().toString(36).substring(2, 9);
+      roomRef = db.ref("rooms/" + currentRoom);
+
+      if (isHost) {
+        roomRef.set({
+          pot: 0,
+          created_at: Date.now()
+        });
+      }
+
+      roomRef.child("players/" + myId).set({
+        name: myName,
+        chips: 500,
+        isHost: isHost
+      });
+
+      roomRef.child("players/" + myId).onDisconnect().remove();
+
+      document.getElementById("joinSection").classList.add("hidden");
+      document.getElementById("gameSection").classList.remove("hidden");
+      document.getElementById("roomDisplay").innerText = "รหัสห้อง: " + currentRoom;
+      document.getElementById("myNameDisplay").innerText = myName;
+
+      listenRoomUpdates();
+    }
+
+    function listenRoomUpdates() {
+      roomRef.child("pot").on("value", snap => {
+        document.getElementById("potDisplay").innerText = snap.val() || 0;
+      });
+
+      roomRef.child("players").on("value", snap => {
+        playersCache = snap.val() || {};
+        renderPlayersList(playersCache);
+        updateSelectDropdowns(playersCache);
+
+        if (playersCache[myId]) {
+          document.getElementById("myChipsDisplay").innerText = playersCache[myId].chips;
+          document.getElementById("myRoleTag").innerText = playersCache[myId].isHost ? "โฮสต์ห้อง" : "ผู้เล่น";
+        }
+      });
+    }
+
+    function renderPlayersList(players) {
+      const container = document.getElementById("playersList");
+      container.innerHTML = "";
+
+      Object.entries(players).forEach(([id, player]) => {
+        const isMe = id === myId;
+        const div = document.createElement("div");
+        div.className = `flex justify-between items-center p-2 rounded-xl text-xs ${isMe ? 'bg-slate-700/60 font-bold border border-amber-500/30' : 'bg-slate-900/40'}`;
+        div.innerHTML = `
+          <span>${player.name} ${isMe ? '(คุณ)' : ''} ${player.isHost ? '👑' : ''}</span>
+          <span class="font-mono text-amber-400 font-bold">${player.chips} 🪙</span>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function updateSelectDropdowns(players) {
+      const kangSelect = document.getElementById("kangTargetPlayer");
+      const vietSelect = document.getElementById("vietWinnerSelect");
+      const slaveSelect = document.getElementById("slaveKingSelect");
+
+      [kangSelect, vietSelect, slaveSelect].forEach(select => {
+        select.innerHTML = '<option value="">-- เลือกผู้เล่น --</option>';
+        Object.entries(players).forEach(([id, player]) => {
+          if (id !== myId) {
+            select.innerHTML += `<option value="${id}">${player.name}</option>`;
+          }
+        });
+      });
+    }
+
+    function betToPot(amount) {
+      const myCurrentChips = playersCache[myId]?.chips || 0;
+      if (myCurrentChips < amount) return alert("ชิปไม่พอ!");
+
+      roomRef.child("players/" + myId + "/chips").set(myCurrentChips - amount);
+      roomRef.child("pot").transaction(pot => (pot || 0) + amount);
+    }
+
+    function betCustomToPot() {
+      const val = parseInt(document.getElementById("customBetInput").value);
+      if (val > 0) {
+        betToPot(val);
+        document.getElementById("customBetInput").value = "";
+      }
+    }
+
+    function claimPot() {
+      roomRef.child("pot").once("value", snap => {
+        const potValue = snap.val() || 0;
+        if (potValue <= 0) return alert("กองกลางไม่มีชิป");
+
+        roomRef.child("players/" + myId + "/chips").transaction(chips => chips + potValue);
+        roomRef.child("pot").set(0);
+      });
+    }
+
+    function showGamePanel(game) {
+      document.querySelectorAll(".game-panel").forEach(p => p.classList.add("hidden"));
+      const target = document.getElementById("panel-" + game);
+      if (target) target.classList.remove("hidden");
+    }
+
+    function payKangFlow() {
+      const targetId = document.getElementById("kangTargetPlayer").value;
+      if (!targetId) return alert("กรุณาเลือกเพื่อนที่ไหลไพ่");
+      transferChips(5, targetId);
+    }
+
+    function payVietCards() {
+      const targetId = document.getElementById("vietWinnerSelect").value;
+      const cards = parseInt(document.getElementById("vietCardCount").value);
+      if (!targetId || !cards || cards <= 0) return alert("ระบุผู้ชนะและจำนวนใบ");
+      transferChips(cards * 2, targetId);
+    }
+
+    function paySlaveTax() {
+      const targetId = document.getElementById("slaveKingSelect").value;
+      if (!targetId) return alert("กรุณาเลือกคิง");
+      transferChips(20, targetId);
+    }
+
+    function transferChips(amount, targetId) {
+      const myCurrentChips = playersCache[myId]?.chips || 0;
+      if (myCurrentChips < amount) return alert("ชิปไม่พอจ่าย!");
+
+      roomRef.child("players/" + myId + "/chips").set(myCurrentChips - amount);
+      roomRef.child("players/" + targetId + "/chips").transaction(chips => (chips || 0) + amount);
+      alert("โอนชิปเรียบร้อย");
+    }
+  </script>
+</body>
+</html>
