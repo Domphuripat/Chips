@@ -3,9 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Card Game Virtual Chips</title>
+  <title>Card Game Virtual Chips Pro</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Firebase SDK (Compat Version สำหรับ Single File HTML) -->
+  <!-- QRCode.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 </head>
@@ -13,9 +15,9 @@
 
   <div class="w-full max-w-md space-y-4">
     <!-- Header -->
-    <header class="text-center py-2 border-b border-slate-700">
-      <h1 class="text-2xl font-black text-amber-400 tracking-wide">♠ VIRTUAL CHIPS ♥</h1>
-      <p id="roomDisplay" class="text-xs text-slate-400 mt-1">ยังไม่ได้เชื่อมต่อห้อง</p>
+    <header class="text-center py-2 border-b border-slate-800">
+      <h1 class="text-2xl font-black text-amber-400 tracking-wider">♠ VIRTUAL CHIPS ♥</h1>
+      <p id="roomDisplay" class="text-xs text-slate-400 mt-0.5">ยังไม่ได้เชื่อมต่อห้อง</p>
     </header>
 
     <!-- Screen 1: Join / Create Room -->
@@ -26,7 +28,7 @@
       </div>
       <div>
         <label class="text-xs text-slate-400 block mb-1">รหัสห้อง (Room Code)</label>
-        <input id="roomCodeInput" type="text" placeholder="เช่น 9999 (เว้นว่างได้ถ้าสร้างใหม่)" class="w-full bg-slate-700 rounded-xl px-4 py-2.5 text-white uppercase outline-none focus:ring-2 focus:ring-amber-400">
+        <input id="roomCodeInput" type="text" placeholder="ระบุเลขห้อง (หรือเว้นว่างถ้าสร้างใหม่)" class="w-full bg-slate-700 rounded-xl px-4 py-2.5 text-white uppercase outline-none focus:ring-2 focus:ring-amber-400">
       </div>
       <div class="grid grid-cols-2 gap-3 pt-2">
         <button onclick="joinRoom(false)" class="bg-slate-700 hover:bg-slate-600 text-amber-400 font-bold py-3 rounded-xl transition-all">เข้าร่วมห้อง</button>
@@ -39,22 +41,22 @@
       <!-- Player Info Card -->
       <div class="bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 p-4 rounded-2xl shadow-lg flex justify-between items-center">
         <div>
-          <div id="myRoleTag" class="text-xs font-bold uppercase opacity-75">ผู้เล่น</div>
+          <div id="myRoleTag" class="text-[11px] font-black uppercase tracking-wider opacity-75">ผู้เล่น</div>
           <div id="myNameDisplay" class="text-xl font-black leading-tight">Player</div>
         </div>
         <div class="text-right">
-          <div class="text-xs uppercase font-bold opacity-75">ชิปคงเหลือ</div>
-          <div id="myChipsDisplay" class="text-3xl font-black">0</div>
+          <div class="text-[11px] uppercase font-black tracking-wider opacity-75">ชิปคงเหลือ</div>
+          <div id="myChipsDisplay" class="text-3xl font-black font-mono">0</div>
         </div>
       </div>
 
       <!-- Pot Section -->
-      <div class="bg-slate-800 border border-slate-700 p-4 rounded-2xl flex justify-between items-center shadow-md">
+      <div class="bg-slate-800 border border-slate-700/80 p-4 rounded-2xl flex justify-between items-center shadow-md">
         <div>
           <div class="text-xs text-slate-400">กองกลาง (Pot)</div>
-          <div id="potDisplay" class="text-2xl font-black text-amber-400">0</div>
+          <div id="potDisplay" class="text-2xl font-black text-amber-400 font-mono">0</div>
         </div>
-        <button onclick="claimPot()" class="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-all">ฉันชนะรอบนี้ (กิน Pot)</button>
+        <button onclick="claimPot()" class="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-all">กิน Pot กลาง 🏆</button>
       </div>
 
       <!-- Quick Action / Bet -->
@@ -67,59 +69,99 @@
           <button onclick="betToPot(50)" class="bg-slate-700 hover:bg-slate-600 active:scale-95 py-2 rounded-xl font-bold text-sm">+50</button>
         </div>
         <div class="flex gap-2">
-          <input id="customBetInput" type="number" placeholder="ระบุจำนวน..." class="w-full bg-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-amber-400">
+          <input id="customBetInput" type="number" placeholder="ระบุจำนวนชิป..." class="w-full bg-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-amber-400">
           <button onclick="betCustomToPot()" class="bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold px-4 py-2 text-sm rounded-xl shrink-0">ลงชิป</button>
         </div>
       </div>
 
-      <!-- Game Specific Tabs -->
+      <!-- Game Tools Panel -->
       <div class="bg-slate-800 p-4 rounded-2xl space-y-3 border border-slate-700/60">
         <div class="text-xs font-bold text-slate-300">เครื่องมือคำนวณตามเกม</div>
         <div class="grid grid-cols-3 gap-2">
-          <button onclick="showGamePanel('kang')" class="bg-indigo-600/30 border border-indigo-500/60 text-indigo-200 text-xs py-2 rounded-lg font-bold">ไพ่แคง (ไหล)</button>
-          <button onclick="showGamePanel('viet')" class="bg-rose-600/30 border border-rose-500/60 text-rose-200 text-xs py-2 rounded-lg font-bold">ไพ่เวียด (นับใบ)</button>
-          <button onclick="showGamePanel('slave')" class="bg-teal-600/30 border border-teal-500/60 text-teal-200 text-xs py-2 rounded-lg font-bold">สลาฟ (King/Slave)</button>
+          <button onclick="showGamePanel('kang')" class="bg-indigo-600/30 border border-indigo-500/60 text-indigo-200 text-xs py-2 rounded-lg font-bold">ไพ่แคง</button>
+          <button onclick="showGamePanel('viet')" class="bg-rose-600/30 border border-rose-500/60 text-rose-200 text-xs py-2 rounded-lg font-bold">ไพ่เวียด</button>
+          <button onclick="showGamePanel('slave')" class="bg-teal-600/30 border border-teal-500/60 text-teal-200 text-xs py-2 rounded-lg font-bold">สลาฟ</button>
         </div>
 
-        <!-- แผงไพ่แคง (จ่ายค่าไหล) -->
+        <!-- แผงไพ่แคง -->
         <div id="panel-kang" class="game-panel hidden pt-2 space-y-2 border-t border-slate-700">
-          <div class="text-xs text-indigo-300 font-medium">จ่ายค่าไหลให้เพื่อน:</div>
+          <div class="text-xs text-indigo-300 font-medium">ไหลไพ่ (จ่ายให้คนก่อนหน้า):</div>
           <div class="flex gap-2">
             <select id="kangTargetPlayer" class="w-full bg-slate-700 text-xs rounded-lg px-2 py-2 text-white outline-none"></select>
-            <button onclick="payKangFlow()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-lg shrink-0">จ่าย 5 ชิป</button>
+            <button onclick="payKangFlow()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-2 rounded-lg shrink-0">จ่าย 5 ชิป</button>
           </div>
+          <button onclick="payKangBust()" class="w-full bg-rose-900/60 hover:bg-rose-900 border border-rose-700 text-rose-200 text-xs font-bold py-2 rounded-lg">💥 แคงล่ม! (ฉันจ่ายรอบวงคนละ 10)</button>
         </div>
 
-        <!-- แผงไพ่เวียด (คิดแต้มตามใบ) -->
+        <!-- แผงไพ่เวียด -->
         <div id="panel-viet" class="game-panel hidden pt-2 space-y-2 border-t border-slate-700">
-          <div class="text-xs text-rose-300 font-medium">แพ้ไพ่เวียด (จ่ายคนชนะตามใบ):</div>
+          <div class="text-xs text-rose-300 font-medium">แพ้ตามใบ (จ่ายคนชนะ ใบละ 2 ชิป):</div>
           <div class="grid grid-cols-2 gap-2">
             <select id="vietWinnerSelect" class="bg-slate-700 text-xs rounded-lg px-2 py-2 text-white outline-none"></select>
             <input id="vietCardCount" type="number" placeholder="เหลือกี่ใบ" class="bg-slate-700 text-xs rounded-lg px-2 py-2 text-white outline-none">
           </div>
-          <button onclick="payVietCards()" class="w-full bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold py-2 rounded-lg">จ่ายชิป (ใบละ 2 ชิป)</button>
+          <button onclick="payVietCards()" class="w-full bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold py-2 rounded-lg">จ่ายชิปตามใบ</button>
+          <div class="pt-1 flex gap-2">
+            <select id="vietChopTarget" class="w-full bg-slate-700 text-xs rounded-lg px-2 py-2 text-white outline-none"></select>
+            <button onclick="payVietChop()" class="bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold px-3 py-2 rounded-lg shrink-0">โดนตัด 2 (จ่าย 10)</button>
+          </div>
         </div>
 
         <!-- แผงสลาฟ -->
         <div id="panel-slave" class="game-panel hidden pt-2 space-y-2 border-t border-slate-700">
-          <div class="text-xs text-teal-300 font-medium">สลาฟจ่ายคิง (Slave → King):</div>
+          <div class="text-xs text-teal-300 font-medium">สลาฟจ่ายส่วยรอบก่อนหน้า:</div>
           <div class="flex gap-2">
             <select id="slaveKingSelect" class="w-full bg-slate-700 text-xs rounded-lg px-2 py-2 text-white outline-none"></select>
-            <button onclick="paySlaveTax()" class="bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold px-4 py-2 rounded-lg shrink-0">จ่าย 20 ชิป</button>
+            <button onclick="paySlaveTax(20)" class="bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold px-3 py-2 rounded-lg shrink-0">Slave จ่าย 20</button>
+          </div>
+          <div class="flex gap-2">
+            <select id="slaveQueenSelect" class="w-full bg-slate-700 text-xs rounded-lg px-2 py-2 text-white outline-none"></select>
+            <button onclick="payQueenTax(10)" class="bg-teal-700 hover:bg-teal-600 text-white text-xs font-bold px-3 py-2 rounded-lg shrink-0">รองสลาฟ จ่าย 10</button>
           </div>
         </div>
       </div>
 
-      <!-- Player List -->
+      <!-- Player List & Host Tools -->
       <div class="bg-slate-800 p-4 rounded-2xl space-y-2 border border-slate-700/60">
-        <div class="text-xs font-bold text-slate-400">ผู้เล่นในโต๊ะ</div>
+        <div class="flex justify-between items-center">
+          <div class="text-xs font-bold text-slate-400">ผู้เล่นในโต๊ะ</div>
+          <button onclick="toggleQRModal()" class="text-xs text-amber-400 font-bold hover:underline flex items-center gap-1">📱 QR ชวนเพื่อน</button>
+        </div>
         <div id="playersList" class="space-y-1.5 max-h-48 overflow-y-auto"></div>
+
+        <!-- Host Controls -->
+        <div id="hostControls" class="hidden pt-2 border-t border-slate-700/80 space-y-2">
+          <div class="text-[11px] font-bold text-amber-400">👑 เมนูสำหรับโฮสต์:</div>
+          <div class="flex gap-2">
+            <select id="rebuyTargetSelect" class="w-full bg-slate-700 text-xs rounded-lg px-2 py-1.5 text-white outline-none"></select>
+            <button onclick="giveRebuy()" class="bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg shrink-0">+500 ชิป (Re-buy)</button>
+          </div>
+          <button onclick="resetAllTable()" class="w-full bg-slate-700 hover:bg-red-900/60 text-slate-300 hover:text-red-200 text-xs py-1.5 rounded-lg transition-all">รีเซ็ตโต๊ะ (ทุกคนกลับไป 500 ชิป)</button>
+        </div>
+      </div>
+
+      <!-- Activity Log -->
+      <div class="bg-slate-800/90 p-3.5 rounded-2xl border border-slate-700/60 space-y-1.5">
+        <div class="text-xs font-bold text-slate-400 flex justify-between">
+          <span>ประวัติการโอนชิป (Log)</span>
+          <span class="text-[10px] text-slate-500">ล่าสุด 15 รายการ</span>
+        </div>
+        <div id="activityLogs" class="text-[11px] space-y-1 max-h-32 overflow-y-auto text-slate-300 font-mono"></div>
       </div>
     </div>
   </div>
 
+  <!-- QR Code Modal -->
+  <div id="qrModal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 p-6 rounded-2xl max-w-xs w-full text-center space-y-4 border border-slate-700">
+      <h3 class="text-sm font-bold text-amber-400">สแกนเพื่อเข้าห้องนี้</h3>
+      <div id="qrcode" class="flex justify-center bg-white p-3 rounded-xl mx-auto w-fit"></div>
+      <p id="qrRoomCode" class="text-sm font-mono text-slate-200 font-bold"></p>
+      <button onclick="toggleQRModal()" class="w-full bg-slate-700 hover:bg-slate-600 text-white text-xs py-2 rounded-xl font-bold">ปิดหน้าต่าง</button>
+    </div>
+  </div>
+
   <script>
-    // Config ของ Firebase ที่ใส่ค่าจริงของคุณเรียบร้อยแล้ว
     const firebaseConfig = {
       apiKey: "AIzaSyBxbzonZYfHsAefpHgo40YrHuRJmz93Buk",
       authDomain: "chip-flow.firebaseapp.com",
@@ -139,6 +181,16 @@
     let myName = "";
     let roomRef = null;
     let playersCache = {};
+    let isUserHost = false;
+
+    // เช็ก Room Code จาก URL Parameter (กรณีเพื่อนสแกน QR มา)
+    window.onload = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const roomParam = urlParams.get('room');
+      if (roomParam) {
+        document.getElementById("roomCodeInput").value = roomParam;
+      }
+    };
 
     function joinRoom(isHost) {
       myName = document.getElementById("playerNameInput").value.trim();
@@ -151,6 +203,7 @@
       }
 
       currentRoom = room;
+      isUserHost = isHost;
       myId = "p_" + Math.random().toString(36).substring(2, 9);
       roomRef = db.ref("rooms/" + currentRoom);
 
@@ -159,6 +212,7 @@
           pot: 0,
           created_at: Date.now()
         });
+        document.getElementById("hostControls").classList.remove("hidden");
       }
 
       roomRef.child("players/" + myId).set({
@@ -174,14 +228,18 @@
       document.getElementById("roomDisplay").innerText = "รหัสห้อง: " + currentRoom;
       document.getElementById("myNameDisplay").innerText = myName;
 
+      logActivity(`${myName} เข้าร่วมห้อง`);
+      generateRoomQR();
       listenRoomUpdates();
     }
 
     function listenRoomUpdates() {
+      // ติดตาม Pot
       roomRef.child("pot").on("value", snap => {
         document.getElementById("potDisplay").innerText = snap.val() || 0;
       });
 
+      // ติดตามผู้เล่น
       roomRef.child("players").on("value", snap => {
         playersCache = snap.val() || {};
         renderPlayersList(playersCache);
@@ -191,6 +249,19 @@
           document.getElementById("myChipsDisplay").innerText = playersCache[myId].chips;
           document.getElementById("myRoleTag").innerText = playersCache[myId].isHost ? "โฮสต์ห้อง" : "ผู้เล่น";
         }
+      });
+
+      // ติดตาม Activity Log
+      roomRef.child("logs").limitToLast(15).on("value", snap => {
+        const container = document.getElementById("activityLogs");
+        container.innerHTML = "";
+        const logs = snap.val() || {};
+        Object.values(logs).forEach(log => {
+          const div = document.createElement("div");
+          div.className = "text-slate-400 py-0.5 border-b border-slate-700/30";
+          div.innerText = log;
+          container.prepend(div);
+        });
       });
     }
 
@@ -211,26 +282,48 @@
     }
 
     function updateSelectDropdowns(players) {
-      const kangSelect = document.getElementById("kangTargetPlayer");
-      const vietSelect = document.getElementById("vietWinnerSelect");
-      const slaveSelect = document.getElementById("slaveKingSelect");
+      const selects = [
+        document.getElementById("kangTargetPlayer"),
+        document.getElementById("vietWinnerSelect"),
+        document.getElementById("vietChopTarget"),
+        document.getElementById("slaveKingSelect"),
+        document.getElementById("slaveQueenSelect")
+      ];
 
-      [kangSelect, vietSelect, slaveSelect].forEach(select => {
-        select.innerHTML = '<option value="">-- เลือกผู้เล่น --</option>';
+      selects.forEach(select => {
+        if (!select) return;
+        select.innerHTML = '<option value="">-- เลือกเพื่อน --</option>';
         Object.entries(players).forEach(([id, player]) => {
           if (id !== myId) {
             select.innerHTML += `<option value="${id}">${player.name}</option>`;
           }
         });
       });
+
+      // ดรอปดาวน์สำหรับ Re-buy ของโฮสต์
+      const rebuySelect = document.getElementById("rebuyTargetSelect");
+      if (rebuySelect) {
+        rebuySelect.innerHTML = '<option value="">-- เลือกคนที่หมดตัว --</option>';
+        Object.entries(players).forEach(([id, player]) => {
+          rebuySelect.innerHTML += `<option value="${id}">${player.name} (${player.chips})</option>`;
+        });
+      }
     }
 
+    // Logger
+    function logActivity(text) {
+      const time = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+      roomRef.child("logs").push(`[${time}] ${text}`);
+    }
+
+    // Bet & Claim Pot
     function betToPot(amount) {
       const myCurrentChips = playersCache[myId]?.chips || 0;
       if (myCurrentChips < amount) return alert("ชิปไม่พอ!");
 
       roomRef.child("players/" + myId + "/chips").set(myCurrentChips - amount);
       roomRef.child("pot").transaction(pot => (pot || 0) + amount);
+      logActivity(`${myName} ลง ${amount} ชิป เข้า Pot`);
     }
 
     function betCustomToPot() {
@@ -248,41 +341,110 @@
 
         roomRef.child("players/" + myId + "/chips").transaction(chips => chips + potValue);
         roomRef.child("pot").set(0);
+        logActivity(`${myName} ชนะรอบนี้ กวาด Pot ไป +${potValue} ชิป 🏆`);
       });
     }
 
+    // ฟังก์ชันย้ายชิปส่วนตัว
+    function transferChips(amount, targetId, reason) {
+      const myCurrentChips = playersCache[myId]?.chips || 0;
+      if (myCurrentChips < amount) return alert("ชิปไม่พอจ่าย!");
+
+      const targetName = playersCache[targetId]?.name || "เพื่อน";
+      roomRef.child("players/" + myId + "/chips").set(myCurrentChips - amount);
+      roomRef.child("players/" + targetId + "/chips").transaction(chips => (chips || 0) + amount);
+      logActivity(`${myName} จ่ายให้ ${targetName} ${amount} ชิป (${reason})`);
+    }
+
+    // ไพ่แคง
+    function payKangFlow() {
+      const targetId = document.getElementById("kangTargetPlayer").value;
+      if (!targetId) return alert("กรุณาเลือกเพื่อนที่ไหลไพ่");
+      transferChips(5, targetId, "ค่าไหล");
+    }
+
+    function payKangBust() {
+      if (!confirm("ยืนยันว่าคุณแคงล่ม? คุณจะต้องจ่ายรอบวงคนละ 10 ชิป")) return;
+      const otherPlayers = Object.entries(playersCache).filter(([id]) => id !== myId);
+      const totalCost = otherPlayers.length * 10;
+      const myCurrentChips = playersCache[myId]?.chips || 0;
+
+      if (myCurrentChips < totalCost) return alert("ชิปไม่พอจ่ายรอบวง!");
+
+      roomRef.child("players/" + myId + "/chips").set(myCurrentChips - totalCost);
+      otherPlayers.forEach(([id]) => {
+        roomRef.child("players/" + id + "/chips").transaction(c => (c || 0) + 10);
+      });
+      logActivity(`💥 ${myName} แคงล่ม! จ่ายรอบวงคนละ 10 ชิป`);
+    }
+
+    // ไพ่เวียด
+    function payVietCards() {
+      const targetId = document.getElementById("vietWinnerSelect").value;
+      const cards = parseInt(document.getElementById("vietCardCount").value);
+      if (!targetId || !cards || cards <= 0) return alert("ระบุผู้ชนะและจำนวนใบ");
+      transferChips(cards * 2, targetId, `แพ้ไพ่เวียด ${cards} ใบ`);
+      document.getElementById("vietCardCount").value = "";
+    }
+
+    function payVietChop() {
+      const targetId = document.getElementById("vietChopTarget").value;
+      if (!targetId) return alert("กรุณาเลือกคนที่สับหมู");
+      transferChips(10, targetId, "โดนตัด 2 / สับหมู");
+    }
+
+    // สลาฟ
+    function paySlaveTax(amount) {
+      const targetId = document.getElementById("slaveKingSelect").value;
+      if (!targetId) return alert("กรุณาเลือกคิง");
+      transferChips(amount, targetId, "สลาฟจ่ายคิง");
+    }
+
+    function payQueenTax(amount) {
+      const targetId = document.getElementById("slaveQueenSelect").value;
+      if (!targetId) return alert("กรุณาเลือกควีน");
+      transferChips(amount, targetId, "รองสลาฟจ่ายควีน");
+    }
+
+    // ฟังก์ชันของ Host (Re-buy & Reset)
+    function giveRebuy() {
+      const targetId = document.getElementById("rebuyTargetSelect").value;
+      if (!targetId) return alert("กรุณาเลือกผู้เล่น");
+      roomRef.child("players/" + targetId + "/chips").transaction(c => (c || 0) + 500);
+      const targetName = playersCache[targetId]?.name || "ผู้เล่น";
+      logActivity(`👑 โฮสต์เติมชิป Re-buy ให้ ${targetName} +500 ชิป`);
+    }
+
+    function resetAllTable() {
+      if (!confirm("ต้องการรีเซ็ตทั้งโต๊ะกลับไปเป็น 500 ชิป และเคลียร์ Pot หรือไม่?")) return;
+      roomRef.child("pot").set(0);
+      Object.keys(playersCache).forEach(id => {
+        roomRef.child("players/" + id + "/chips").set(500);
+      });
+      logActivity(`👑 โฮสต์ได้รีเซ็ตโต๊ะใหม่เรียบร้อย`);
+    }
+
+    // UI Helpers & QR
     function showGamePanel(game) {
       document.querySelectorAll(".game-panel").forEach(p => p.classList.add("hidden"));
       const target = document.getElementById("panel-" + game);
       if (target) target.classList.remove("hidden");
     }
 
-    function payKangFlow() {
-      const targetId = document.getElementById("kangTargetPlayer").value;
-      if (!targetId) return alert("กรุณาเลือกเพื่อนที่ไหลไพ่");
-      transferChips(5, targetId);
+    function generateRoomQR() {
+      const joinUrl = `${window.location.origin}${window.location.pathname}?room=${currentRoom}`;
+      document.getElementById("qrcode").innerHTML = "";
+      new QRCode(document.getElementById("qrcode"), {
+        text: joinUrl,
+        width: 160,
+        height: 160
+      });
+      document.getElementById("qrRoomCode").innerText = "รหัสห้อง: " + currentRoom;
     }
 
-    function payVietCards() {
-      const targetId = document.getElementById("vietWinnerSelect").value;
-      const cards = parseInt(document.getElementById("vietCardCount").value);
-      if (!targetId || !cards || cards <= 0) return alert("ระบุผู้ชนะและจำนวนใบ");
-      transferChips(cards * 2, targetId);
-    }
-
-    function paySlaveTax() {
-      const targetId = document.getElementById("slaveKingSelect").value;
-      if (!targetId) return alert("กรุณาเลือกคิง");
-      transferChips(20, targetId);
-    }
-
-    function transferChips(amount, targetId) {
-      const myCurrentChips = playersCache[myId]?.chips || 0;
-      if (myCurrentChips < amount) return alert("ชิปไม่พอจ่าย!");
-
-      roomRef.child("players/" + myId + "/chips").set(myCurrentChips - amount);
-      roomRef.child("players/" + targetId + "/chips").transaction(chips => (chips || 0) + amount);
-      alert("โอนชิปเรียบร้อย");
+    function toggleQRModal() {
+      const modal = document.getElementById("qrModal");
+      modal.classList.toggle("hidden");
     }
   </script>
 </body>
